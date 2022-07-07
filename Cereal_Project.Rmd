@@ -1,0 +1,166 @@
+---
+title: "Project 1 (Cereal)"
+author: "Kameron Standhaft"
+date: '2022-07-05'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(tidyverse)
+cereal <- read_csv("C:/Users/kdkyg/Downloads/archive/cereal.csv ")
+```
+
+## About the Data
+
+I chose Kaggle's **80 Cereals** dataset (see link here: <https://www.kaggle.com/datasets/crawford/80-cereals>) for my Project 1.  From this dataset, I will be examining the sugars and calories variables to calculate a regression line to predict the amount of calories a cereal will have based on the amount of sugar it has.
+
+Below is the summary of the stats of calories and sugars, respectively.
+
+```{r cereal}
+summary(cereal$calories)
+summary(cereal$sugars)
+```
+
+## Calculations for the Regression line
+
+Here we will evaluate and save all necessary values into variables
+
+```{r calculations}
+X <- cereal$sugars
+Y <- cereal$calories
+
+one <- tibble(X, Y)
+
+# find summary stats
+means <- summarize(one, mean_x = mean(X, na.rm=TRUE), sd_x = sd(X, na.rm=TRUE), 
+                        mean_y = mean(Y, na.rm=TRUE), sd_y = sd(Y, na.rm=TRUE))
+
+# create variables for summations
+one$cer_x = one$X - means$mean_x[1]
+one$cer_y = one$Y - means$mean_y[1]
+one$cer_xy = one$cer_x*one$cer_y
+one$cer_x2 = one$cer_x^2
+one$cer_y2 = one$cer_y^2
+
+sums <- summarise_at(one, which(sapply(one, is.numeric)), sum)
+sums
+
+```
+
+## Constructing the Regression Line
+
+Now that I have all of the necessary calculations, I will put it together to make the simple regression line.
+
+```{r regression}
+slope <- sums$cer_xy/sums$cer_x2
+slope
+
+intercept <- means$mean_y - (slope*means$mean_x)
+intercept
+```
+
+## Putting it all together
+
+Now that we have the slope and the intercept, we can actually construct our linear regression line:
+
+<center>
+
+ $\hat{Y} = `r intercept` + `r slope`X$
+
+</center>
+
+This means that a cereal with no sugar would have 89.82 calories per serving, though as we add one gram of sugar, the calorie count increases by `r slope` per serving.
+
+## Confidence Interval for the slope
+
+We will now be constructing a 95% confidence interval for the slope between sugars and calories in a serving of cereal.
+
+```{r ci}
+# construct model
+one_model <- lm(Y ~ X, data = one)
+one_summary <- summary(one_model)
+
+one_ci <- as_tibble(confint(one_model, level=0.95))
+one_ci
+```
+
+We can be 95% confident that the slope between sugars and calories in a serving of cereal is between 1.63 and 3.30.  
+
+## Hypothesis Testing
+
+We will now conduct a T-test to determine if sugar significantly predicts calorie count in a serving of cereal.
+
+### Hypotheses
+
+$$H_0: \beta_{1}=0$$
+$$H_1: \beta_{1} \neq 0$$
+
+### Test Statistic
+
+```{r test_stat}
+one$pred_y = intercept + slope*one$X
+
+one$sse_no_sum = (one$Y - one$pred_y)^2
+
+sse = 19728.19
+
+mse = sse/75
+
+s2 = mse/sums$cer_x2
+
+t0 = (intercept)/sqrt(s2)
+
+```
+
+$$t_0 = \frac{`r intercept` - 0}{\sqrt{`r s2`}} = `r t0`$$
+
+### p-value
+
+Now to find our p-value based on our test statistic. We will use an alpha of 0.05
+
+$$ p-val = 2p[t_{75} \geq `r t0`] = 2(p < 0.0001) = $$
+$$ p < 0.0002 $$
+
+
+
+### Conclusion/Interpretation
+
+We will reject $H_0$ if $p < \alpha$; $\alpha = 0.05$
+
+Since our p-val < 0.0002, we will reject $H_0$.  There is sufficient evidence to suggest that the amount of sugar in a serving of cereal significantly predicts calorie count in a serving.
+
+## R^2^
+
+Let us look at the correlation coefficient of our regression line to see how closely the data falls to this line.
+
+```{r r2}
+r2 = 1 - (sse/sums$cer_y2)
+
+
+```
+
+$$R^2 = 1 - \frac{`r sse`}{`r sums$cer_y2`} = `r r2`$$
+
+Since the correlation coefficient is so low at 0.3162, the data points aren't very linear
+
+## Visualization of the Data
+
+Below is a graph of the sugar and calorie count for servings of cereal.  My regression line is also plotted with the data
+
+```{r vis}
+plot(X, Y, main = "Sugar vs Calories in Cereal",
+     xlab = "Sugar Count", ylab = "Calorie Count",
+     pch = 19, frame = FALSE)
+
+plot(X, Y, main = "Sugar vs Calories in Cereal",
+     xlab = "Sugar Count", ylab = "Calorie Count",
+     pch = 19, frame = FALSE)
+abline(lm(Y ~ X, data = cereal), col = "red")
+
+
+
+```
+
+
